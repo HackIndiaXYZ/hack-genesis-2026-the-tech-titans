@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Highway breakdown help - MyHighway</title>
+    <link rel="stylesheet" href="assets/style.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script src="assets/app.js"></script>
+  </head>
+  <body>
+    <header id="nav"></header>
+    <div class="road"></div>
+    <div class="hero">
+      <div>
+        <h1>Highway par gaadi ruk gayi? Madad seedhi map par aati hai.</h1>
+        <p style="color: azure">
+          Service select karein, apna live location bhejein aur provider ko
+          aapki taraf aata hua real-time dekhein. Tyre, fuel, battery, towing,
+          sab ek jagah.
+        </p>
+        <a style="background-color: #eafd97" class="btn z" href="register.html"
+          >Request Help</a
+        >
+        <a class="btn" href="register.html?role=provider">Service Provider</a>
+      </div>
+      <div class="board">
+        <h3>Currently Online</h3>
+        <div class="rw"><span>Providers online</span><b id="sPon">-</b></div>
+        <div class="rw"><span>Jobs complete</span><b id="sDone">-</b></div>
+        <div class="rw"><span>Registered drivers</span><b id="sCus">-</b></div>
+        <div class="rw"><span>Emergency helpline</span><b>112</b></div>
+      </div>
+    </div>
+    <div class="sec" id="services">
+      <h2>What do you need help with?</h2>
+      <div class="svcs" id="svcs"></div>
+    </div>
+    <div class="sec" id="how">
+      <h2>How does it work?</h2>
+      <div class="steps">
+        <div>
+          <h3>1. Request</h3>
+          Choose a service or describe your problem to the AI.
+        </div>
+        <div>
+          <h3>2. Nearest provider</h3>
+          The nearest provider accepts the request.
+        </div>
+        <div>
+          <h3>3. Live tracking</h3>
+          View the provider’s live location and ETA on the map.
+        </div>
+        <div>
+          <h3>4. Chat aur rating</h3>
+          Chat with the provider and rate them after the job is completed.
+        </div>
+      </div>
+    </div>
+    <div class="sec" id="portals">
+      <h2>Three portal, One platform</h2>
+      <div class="portals">
+        <a href="login.html?role=customer"
+          ><b>Customer</b>
+          <p>Request Help, Track, Support Chat.</p></a
+        ><a href="login.html?role=provider"
+          ><b>Provider</b>
+          <p>Get Jobs, Share Live Location, View Earnings.</p></a
+        ><a href="login.html?role=admin"
+          ><b>Admin</b>
+          <p>Manage users, providers, services, and the live map..</p></a
+        >
+      </div>
+    </div>
+    <div style="text-align: center" class="foot">
+      © 2026 MyHighway.In an emergency, call 112.
+    </div>
+    <script>
+      pubNav();
+      api("public").then((r) => {
+        if (!r.ok) return;
+        $("sPon").textContent = r.st.pon;
+        $("sDone").textContent = r.st.done;
+        $("sCus").textContent = r.st.cus;
+        $("svcs").innerHTML = r.services
+          .map(
+            (s) =>
+              `<div class="svc"><div class="ic">
+                ${s.icon}</div><b>
+                  ${esc(s.name)}</b><p>
+                    ${esc(s.descr)}</p><em>from ₹
+                      ${s.base_price}</em></div>`,
+          )
+          .join("");
+      });
+    </script>
+  </body>
+</html>

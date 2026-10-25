@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Dashboard - MyHighway</title>
+    <link rel="stylesheet" href="../assets/style.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script src="../assets/app.js"></script>
+  </head>
+  <style>
+    h3 {
+      color: #eadf97;
+    }
+    .out {
+      background: #080813;
+      color: #a0bddb;
+      font-weight: bold;
+    }
+    .card {
+      background: linear-gradient(135deg, #1e1e2f, #3a3a52, #565678);
+    }
+    #tInfo p {
+      color: white;
+    }
+    #hist {
+      color: white;
+    }
+  </style>
+  <body>
+    <header class="top">
+      <h1>Dashboard</h1>
+      <a
+        class="who"
+        href="http://localhost/highway-assist/customer/profile.html"
+      ></a>
+    </header>
+    <div id="page">
+      <aside class="side">
+        <a class="logo" href="http://localhost/highway-assist/index.html"
+          >My<b style="color: #eadf97">Highway</b></a
+        >
+        <div class="sign">Customer panel</div>
+        <nav>
+          <a
+            href="http://localhost/highway-assist/customer/index.html"
+            class="on"
+            >🏠 Dashboard</a
+          ><a
+            href="http://localhost/highway-assist/customer/support.html"
+            class=""
+            >💬 Support chat</a
+          ><a
+            href="http://localhost/highway-assist/customer/profile.html"
+            class=""
+            >👤 My profile</a
+          >
+        </nav>
+        <a class="out" href="#" id="lo">Logout</a>
+      </aside>
+      <div class="grid2">
+        <div class="card nopad"><div id="map" class="map"></div></div>
+        <div>
+          <div class="card" id="formPane">
+            <h3>🆘 Madad chahiye?</h3>
+            <label class="f"
+              >Problem likhein, AI sahi service suggest karega</label
+            >
+            <div class="row">
+              <input
+                id="aiq"
+                placeholder="jaise: tyre puncture ho gaya"
+              /><button class="btn sm" type="button" id="aiGo">
+                ✨ Suggest
+              </button>
+            </div>
+            <p class="mut" id="aiOut"></p>
+            <div class="tiles" id="tiles"></div>
+            <label class="f">Gaadi (model / number)</label><input id="veh" />
+            <label class="f">Detail (optional)</label
+            ><textarea id="note" rows="2"></textarea>
+            <label class="f"
+              >Location (map par click karein ya pin drag karein)</label
+            ><input id="addr" /><input type="hidden" id="lat" /><input
+              type="hidden"
+              id="lng"
+            />
+            <div class="row" style="margin-top: 14px">
+              <button class="btn" type="button" id="loc">📡 My location</button
+              ><button class="btn p" id="send" type="button">
+                Request bhejein
+              </button>
+            </div>
+          </div>
+          <div class="card" id="trackPane" hidden>
+            <h3 id="tTitle"></h3>
+            <div class="step" id="tSteps"></div>
+            <div id="tInfo"></div>
+            <div class="row" style="margin-top: 10px">
+              <button class="btn d sm" id="cancel" type="button">
+                Request cancel karein
+              </button>
+            </div>
+            <div class="chat" id="chatBox" hidden>
+              <div class="msgs"></div>
+              <form>
+                <input
+                  name="body"
+                  placeholder="Provider ko message..."
+                  autocomplete="off"
+                /><button class="btn p">Send</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div
+        class="card"
+        style="
+          margin-top: 18px;
+          color: #080813;
+          font-weight: bold;
+          font-size: 40px;
+        "
+      >
+        <h3>Meri requests</h3>
+        <div id="hist"></div>
+      </div>
+    </div>
+    <script>
+      const ST = ["pending", "accepted", "on_the_way", "working", "completed"],
+        LB = {
+          pending: "Provider dhundh rahe hain",
+          accepted: "Provider mil gaya",
+          on_the_way: "Provider raste me hai",
+          working: "Kaam chal raha hai",
+          completed: "Complete",
+        };
+      let map,
+        me = null,
+        pm = null,
+        line = null,
+        fitted = 0,
+        chatOn = 0,
+        had = 0,
+        cur = 0,
+        civ = null;
+      async function geo(p) {
+        $("lat").value = p.lat;
+        $("lng").value = p.lng;
+        try {
+          const r = await (
+            await fetch(
+              "https://nominatim.openstreetmap.org/reverse?format=json&lat=" +
+                p.lat +
+                "&lon=" +
+                p.lng,
+            )
+          ).json();
+          $("addr").value = r.display_name || "";
+        } catch (e) {}
+      }
+      function setPos(lat, lng, fly) {
+        if (!me) {
+          me = L.marker([lat, lng], { draggable: true, icon: ico("📍") }).addTo(
+            map,
+          );
+          me.on("dragend", () => geo(me.getLatLng()));
+        }
+        me.setLatLng([lat, lng]);
+        if (fly) map.setView([lat, lng], 14);
+        geo({ lat, lng });
+        api("loc", { lat, lng });
+      }
+      function locate() {
+        navigator.geolocation
+          ? navigator.geolocation.getCurrentPosition(
+              (p) => setPos(p.coords.latitude, p.coords.longitude, 1),
+              () => toast("Browser me location allow karein"),
+              { enableHighAccuracy: true },
+            )
+          : toast("GPS support nahi hai");
+      }
+      async function rate(id, n) {
+        await api("rate", { id, rating: n });
+        hist();
+      }
+      async function hist() {
+        const h = (await api("history")).rows || [];
+        $("hist").innerHTML = !h.length
+          ? '<p class="mut">No requests yet. Send your first request from above.</p>'
+          : "<table><tr><th>#</th><th>Service</th><th>Provider</th><th>Status</th><th>Amount</th><th>Rating</th></tr>" +
+            h
+              .map(
+                (x) =>
+                  `<tr><td>${x.id}</td><td>${x.icon} ${esc(x.sname)}</td><td>${esc(x.pname || "-")}</td><td><span class="tag ${x.status}">${x.status.replace("_", " ")}</span></td><td>${x.price > 0 ? "₹" + x.price : "-"}</td><td>${x.status == "completed" && !x.rating ? "Rate: " + [1, 2, 3, 4, 5].map((i) => `<a class="lnk" href="#" onclick="rate(${x.id},${i});return false">${i}</a>`).join(" ") : x.rating ? "⭐".repeat(x.rating) : "-"}</td></tr>`,
+              )
+              .join("") +
+            "</table>";
+      }
+      function render(r) {
+        $("formPane").hidden = !!r;
+        $("trackPane").hidden = !r;
+        if (!r) {
+          if (had) {
+            had = 0;
+            fitted = 0;
+            chatOn = 0;
+            clearInterval(civ);
+            $("chatBox").hidden = true;
+            if (pm) {
+              map.removeLayer(pm);
+              pm = null;
+            }
+            if (line) {
+              map.removeLayer(line);
+              line = null;
+            }
+            if (me) me.dragging.enable();
+            hist();
+            toast("Request khatam. Apna rating zaroor dein.");
+          }
+          return;
+        }
+        had = 1;
+        cur = r.id;
+        if (me) {
+          me.setLatLng([r.lat, r.lng]);
+          me.dragging.disable();
+        } else me = L.marker([r.lat, r.lng], { icon: ico("📍") }).addTo(map);
+        $("tTitle").textContent = r.icon + " " + r.sname + " (#" + r.id + ")";
+        $("tSteps").innerHTML = ST.map(
+          (s, i) =>
+            '<span class="' +
+            (i <= ST.indexOf(r.status) ? "done" : "") +
+            '">' +
+            LB[s] +
+            "</span>",
+        ).join("");
+        let h = "";
+        if (r.provider_id) {
+          h =
+            "<p><b>" +
+            esc(r.pname) +
+            "</b> · " +
+            esc(r.pveh || "") +
+            '<br><a class="lnk" href="tel:' +
+            esc(r.pphone) +
+            '">📞 ' +
+            esc(r.pphone || "") +
+            "</a></p>";
+          if (r.plat) {
+            const d = km(+r.plat, +r.plng, +r.lat, +r.lng),
+              ll = [+r.plat, +r.plng];
+            h +=
+              "<p>Doori: <b>" +
+              d.toFixed(1) +
+              " km</b> · ETA: <b>" +
+              Math.max(1, Math.round((d / 40) * 60)) +
+              " min</b></p>";
+            pm
+              ? pm.setLatLng(ll)
+              : (pm = L.marker(ll, { icon: ico("🚚") }).addTo(map));
+            line
+              ? line.setLatLngs([ll, [+r.lat, +r.lng]])
+              : (line = L.polyline([ll, [+r.lat, +r.lng]], {
+                  color: "#f5c400",
+                  dashArray: "8 8",
+                }).addTo(map));
+            if (!fitted) {
+              fitted = 1;
+              map.fitBounds([ll, [+r.lat, +r.lng]], {
+                padding: [60, 60],
+                maxZoom: 15,
+              });
+            }
+          }
+          if (chatOn != r.id) {
+            chatOn = r.id;
+            $("chatBox").hidden = false;
+            civ = chat($("chatBox"), "req_" + r.id);
+          }
+        } else
+          h =
+            '<p class="mut">Nearby providers ko request dikh rahi hai. Location map par hai.</p>';
+        $("tInfo").innerHTML = h;
+        $("cancel").hidden = ["on_the_way", "working"].includes(r.status);
+      }
+      async function tick() {
+        const r = await api("active");
+        if (r.ok) render(r.r);
+      }
+      boot("customer", "Dashboard", async (u) => {
+        map = mkMap("map");
+        map.on("click", (e) => {
+          if (!$("formPane").hidden) setPos(e.latlng.lat, e.latlng.lng);
+        });
+        const sv = (await api("public")).services || [];
+        $("tiles").innerHTML = sv
+          .map(
+            (s) =>
+              `<label class="tile"><input type="radio" name="svc" value="${s.id}"><span>${s.icon} <b>${esc(s.name)}</b><small>from ₹${s.base_price}</small></span></label>`,
+          )
+          .join("");
+        $("veh").value = u.vehicle || "";
+        $("loc").onclick = locate;
+        $("aiGo").onclick = async () => {
+          const t = $("aiq").value;
+          if (!t) return;
+          const r = await api("ai", { msg: t });
+          $("aiOut").textContent = r.reply || "";
+          if (r.service) {
+            const i = document.querySelector(
+              'input[name=svc][value="' + r.service + '"]',
+            );
+            if (i) i.checked = true;
+          }
+        };
+        $("send").onclick = async () => {
+          const s = document.querySelector("input[name=svc]:checked");
+          if (!s) return toast("Service select karein");
+          const r = await api("req_create", {
+            service_id: s.value,
+            vehicle: $("veh").value,
+            note: $("note").value,
+            lat: $("lat").value,
+            lng: $("lng").value,
+            address: $("addr").value,
+          });
+          if (!r.ok) return toast(r.err);
+          toast("Request bhej di gayi");
+          tick();
+        };
+        $("cancel").onclick = async () => {
+          if (confirm("Request cancel karein?")) {
+            await api("cancel", { id: cur });
+            if (me) me.dragging.enable();
+            tick();
+          }
+        };
+        locate();
+        tick();
+        hist();
+        setInterval(tick, 4000);
+      });
+    </script>
+  </body>
+</html>

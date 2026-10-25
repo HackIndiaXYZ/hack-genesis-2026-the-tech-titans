@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Support inbox - HighwayGo</title>
+    <link rel="stylesheet" href="../assets/style.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script src="../assets/app.js"></script>
+  </head>
+  <style>
+    .card h3 {
+      color: #eadf97;
+      font-weight: bold;
+      font-size: 40px;
+    }
+    .card {
+      border: 1px solid white;
+    }
+    .cardsl {
+      width: 100%;
+      height: 500px;
+      background: linear-gradient(135deg, #1e1e2f, #3a3a52, #565678);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 40px;
+      color: whitesmoke;
+    }
+    .cardsl h3 {
+      color: #eadf97;
+      font-weight: bold;
+      font-size: 40px;
+    }
+  </style>
+  <body>
+    <div id="page">
+      <div class="grid2" style="grid-template-columns: 320px 1fr">
+        <div class="cardsl">
+          <h3>Conversations</h3>
+          <div id="rooms"></div>
+        </div>
+        <div class="card">
+          <h3 id="ct">Conversation chunein</h3>
+          <div id="holder"></div>
+        </div>
+      </div>
+    </div>
+    <script>
+      let sel = +new URLSearchParams(location.search).get("u") || 0,
+        opened = 0,
+        iv = null;
+      function pick(id) {
+        sel = id;
+        load();
+      }
+      async function load() {
+        const rooms = (await api("sup_rooms")).rows || [];
+        if (!sel && rooms[0]) sel = rooms[0].id;
+        $("rooms").innerHTML = rooms.length
+          ? rooms
+              .map(
+                (r) =>
+                  `<a class="job" style="display:block;${r.id == sel ? "border-color:var(--y)" : ""}" href="#" onclick="pick(${r.id});return false"><b>${esc(r.name)}</b> <span class="tag">${r.role}</span><br><span class="mut">${esc((r.last || "").slice(0, 50))}</span></a>`,
+              )
+              .join("")
+          : '<p class="mut">Abhi kisi user ne support chat shuru nahi ki.</p>';
+        const c = rooms.find((r) => r.id == sel);
+        if (c && opened != sel) {
+          opened = sel;
+          $("ct").textContent = "Chat with " + c.name;
+          clearInterval(iv);
+          $("holder").innerHTML =
+            '<div class="chat" id="sup" style="height:420px"><div class="msgs"></div><form><input name="body" placeholder="Reply likhein..." autocomplete="off"><button class="btn p">Send</button></form></div>';
+          iv = chat($("sup"), "sup_" + sel);
+        }
+      }
+      boot("admin", "Support inbox", (u) => {
+        load();
+        setInterval(load, 8000);
+      });
+    </script>
+  </body>
+</html>

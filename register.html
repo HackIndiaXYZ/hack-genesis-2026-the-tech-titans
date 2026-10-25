@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Sign up - MyHighway</title>
+    <link rel="stylesheet" href="assets/style.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script src="assets/app.js"></script>
+  </head>
+  <style>
+    h2 {
+      color: #eafd97;
+      font-size: 34px;
+    }
+    .auth.card {
+      background: linear-gradient(135deg, #1e1e2f, #3a3a52, #565678);
+      box-shadow:
+        0 0 0 4px #bed1e5,
+        0 20px 50px #0008;
+    }
+    .login {
+      color: #eafd97;
+    }
+  </style>
+  <body>
+    <header id="nav"></header>
+    <div class="auth card">
+      <h2>Create Your Account</h2>
+      <div class="tabs" id="tabs"></div>
+      <div id="msg"></div>
+      <form id="f">
+        <input type="hidden" name="role" id="role" /><label class="f"
+          >Full Name</label
+        ><input name="name" required /><label class="f">Email</label
+        ><input type="email" name="email" required /><label class="f"
+          >Phone</label
+        ><input name="phone" /> <label class="f" id="vl">Your vehicle</label
+        ><input name="vehicle" />
+        <div id="pv" hidden>
+          <label class="f">Services you offer</label
+          ><input name="skills" placeholder="Towing, tyre, battery" />
+          <p class="mut">Admin approval ke baad aap jobs le payenge.</p>
+        </div>
+        <label class="f">Password</label
+        ><input type="password" name="password" minlength="6" required /><button
+          class="btn p"
+          style="width: 100%; margin-top: 18px"
+        >
+          Create account
+        </button>
+      </form>
+      <p class="mut" style="margin-top: 14px">
+        Already registered? <a class="login" href="login.html">Login</a>
+      </p>
+    </div>
+    <script>
+      pubNav();
+      const role =
+        new URLSearchParams(location.search).get("role") == "provider"
+          ? "provider"
+          : "customer";
+      $("role").value = role;
+      $("tabs").innerHTML =
+        `<a class="${role == "customer" ? "on" : ""}" href="?role=customer">I need help</a><a class="${role == "provider" ? "on" : ""}" href="?role=provider">I provide service</a>`;
+      if (role == "provider") {
+        $("pv").hidden = false;
+        $("vl").textContent = "Your vehicle / equipment";
+      }
+      $("f").onsubmit = async (e) => {
+        e.preventDefault();
+        const r = await api("register", new FormData(e.target));
+        if (!r.ok) {
+          $("msg").innerHTML = '<div class="note bad">' + esc(r.err) + "</div>";
+          return;
+        }
+        location.href = r.role + "/index.html";
+      };
+    </script>
+  </body>
+</html>

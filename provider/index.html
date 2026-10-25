@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Jobs - HighwayGo</title>
+    <link rel="stylesheet" href="../assets/style.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script src="../assets/app.js"></script>
+  </head>
+  <style>
+    .card {
+      background: linear-gradient(135deg, #1e1e2f, #3a3a52, #565678);
+    }
+    h3 {
+      color: #eadf97;
+    }
+    .job {
+      background: linear-gradient(135deg, #1e1e2f, #3a3a52, #565678);
+      border: 1px solid white;
+      color: whitesmoke;
+    }
+    b {
+      color: white;
+      font-size: 25px;
+    }
+    .mut {
+      color: aliceblue;
+    }
+  </style>
+  <body>
+    <div id="page">
+      <div id="pend" class="note bad" hidden>
+        Aapka account admin approval ka intezar kar raha hai. Approve hone ke
+        baad hi aap jobs le payenge.
+      </div>
+      <div class="stats" id="stats"></div>
+      <div class="grid2">
+        <div class="card nopad"><div id="map" class="map"></div></div>
+        <div>
+          <div class="card">
+            <div
+              class="row"
+              style="justify-content: space-between; align-items: center"
+            >
+              <h3 style="margin: 0" id="onl"></h3>
+              <button class="btn p sm" id="tog"></button>
+            </div>
+            <p class="mut">
+              Online hone par aapka live location customers ko dikhta hai.
+            </p>
+          </div>
+          <div class="card" style="margin-top: 14px">
+            <h3>Nearby requests</h3>
+            <div id="list">
+              <p class="mut">Online ho jayein, requests yahin dikhengi.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+      let map,
+        online = 0,
+        mine = null,
+        pins = {},
+        jline = null,
+        jobPin = null,
+        jobKey = "",
+        lastSent = 0,
+        curJob = null;
+      const NX = {
+        accepted: ["on_the_way", "🚗 Main nikal gaya"],
+        on_the_way: ["working", "🔧 Kaam shuru"],
+        working: ["completed", "✅ Kaam complete"],
+      };
+      function paint() {
+        $("onl").textContent = online
+          ? "🟢 You Are Online"
+          : "⚪ You Are Offline";
+        $("tog").textContent = online ? "Go offline" : "Go online";
+      }
+      async function stats() {
+        const r = await api("pstats");
+        if (!r.ok) return;
+        $("stats").innerHTML = [
+          [r.all.n, "Total jobs"],
+          ["₹" + r.all.t, "Total earnings"],
+          [r.today.n + " / ₹" + r.today.t, "Today jobs / Earning"],
+          [r.all.a || "-", "Average rating"],
+        ]
+          .map(
+            (x) => `<div class="stat"><b>${x[0]}</b><span>${x[1]}</span></div>`,
+          )
+          .join("");
+      }
+      function pos(p) {
+        const ll = [p.coords.latitude, p.coords.longitude];
+        if (!mine) {
+          mine = L.marker(ll, { icon: ico("🚚") }).addTo(map);
+          map.setView(ll, 13);
+        } else mine.setLatLng(ll);
+        if (jline && jobPin) jline.setLatLngs([ll, jobPin.getLatLng()]);
+        if (online && Date.now() - lastSent > 4000) {
+          lastSent = Date.now();
+          api("loc", { lat: ll[0], lng: ll[1] });
+        }
+      }
+      async function accept(id) {
+        const r = await api("accept", { id });
+        if (!r.ok) toast(r.err);
+        poll();
+      }
+      async function setSt(id, st) {
+        let price = 0;
+        if (st == "completed") {
+          price = prompt(
+            "Final amount (₹) kitna hua?",
+            curJob ? curJob.base_price : 0,
+          );
+          if (price === null) return;
+        }
+        const r = await api("status", { id, status: st, price });
+        if (!r.ok) toast(r.err);
+        jobKey = "";
+        poll();
+        if (st == "completed") stats();
+      }
+      async function poll() {
+        const r = await api("open");
+        if (!r.ok) return;
+        const L1 = $("list");
+        curJob = r.job;
+        Object.values(pins).forEach((p) => map.removeLayer(p));
+        pins = {};
+        if (r.job) {
+          const j = r.job,
+            k = j.id + j.status;
+          if (k != jobKey) {
+            jobKey = k;
+            const n = NX[j.status];
+            L1.innerHTML =
+              '<div class="job"><b>' +
+              j.icon +
+              " " +
+              esc(j.sname) +
+              " (#" +
+              j.id +
+              ")</b><br>👤 " +
+              esc(j.cname) +
+              ' · <a class="lnk" href="tel:' +
+              esc(j.cphone) +
+              '">' +
+              esc(j.cphone || "") +
+              "</a><br>🚘 " +
+              esc(j.vehicle) +
+              "<br>📍 " +
+              esc(j.address) +
+              '<br><span class="mut">' +
+              esc(j.note || "") +
+              '</span><div class="row" style="margin-top:10px">' +
+              (n
+                ? '<button class="btn p" onclick="setSt(' +
+                  j.id +
+                  ",'" +
+                  n[0] +
+                  "')\">" +
+                  n[1] +
+                  "</button>"
+                : "") +
+              '<a class="btn" target="_blank" href="https://www.google.com/maps/dir/?api=1&destination=' +
+              j.lat +
+              "," +
+              j.lng +
+              '">🧭 Navigate</a></div></div><div class="chat" id="cb"><div class="msgs"></div><form><input name="body" placeholder="Customer ko message..." autocomplete="off"><button class="btn p">Send</button></form></div>';
+            window.civ && clearInterval(window.civ);
+            window.civ = chat($("cb"), "req_" + j.id);
+          }
+          const ll = [+j.lat, +j.lng];
+          if (!jobPin) jobPin = L.marker(ll, { icon: ico("🆘") }).addTo(map);
+          else jobPin.setLatLng(ll);
+          if (mine) {
+            const m = mine.getLatLng();
+            jline
+              ? jline.setLatLngs([m, ll])
+              : (jline = L.polyline([m, ll], {
+                  color: "#f5c400",
+                  dashArray: "8 8",
+                }).addTo(map));
+          }
+          return;
+        }
+        jobKey = "";
+        window.civ && clearInterval(window.civ);
+        if (jobPin) {
+          map.removeLayer(jobPin);
+          jobPin = null;
+        }
+        if (jline) {
+          map.removeLayer(jline);
+          jline = null;
+        }
+        if (!online) {
+          L1.innerHTML =
+            '<p class="mut">Online ho jayein, requests yahin dikhengi.</p>';
+          return;
+        }
+        if (!r.rows.length) {
+          L1.innerHTML =
+            '<p class="mut">Abhi koi pending request nahi. Naye requests yahin auto-update hongi.</p>';
+          return;
+        }
+        L1.innerHTML = r.rows
+          .map(
+            (x) =>
+              '<div class="job"><b>' +
+              x.icon +
+              " " +
+              esc(x.sname) +
+              "</b> · ₹" +
+              x.base_price +
+              '+ · <span class="tag">' +
+              x.dist +
+              " km door</span><br>📍 " +
+              esc(x.address) +
+              '<br><span class="mut">' +
+              esc(x.vehicle) +
+              " " +
+              esc(x.note || "") +
+              '</span><div style="margin-top:8px"><button class="btn p sm" onclick="accept(' +
+              x.id +
+              ')">Accept job</button></div></div>',
+          )
+          .join("");
+        r.rows.forEach(
+          (x) =>
+            (pins[x.id] = L.marker([x.lat, x.lng], { icon: ico(x.icon) }).addTo(
+              map,
+            )),
+        );
+      }
+      boot("provider", "Jobs", (u) => {
+        map = mkMap("map");
+        online = +u.online;
+        paint();
+        if (u.status != "active") {
+          $("pend").hidden = false;
+          $("tog").disabled = true;
+        }
+        $("tog").onclick = async () => {
+          online = online ? 0 : 1;
+          await api("online", { on: online });
+          paint();
+          poll();
+        };
+        navigator.geolocation
+          ? navigator.geolocation.watchPosition(
+              pos,
+              () =>
+                toast(
+                  "GPS allow karein, warna customers aapko dekh nahi payenge",
+                ),
+              { enableHighAccuracy: true, maximumAge: 2000 },
+            )
+          : toast("GPS support nahi hai");
+        stats();
+        poll();
+        setInterval(poll, 4000);
+      });
+    </script>
+  </body>
+</html>

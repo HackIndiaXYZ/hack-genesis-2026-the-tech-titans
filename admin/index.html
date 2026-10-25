@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Overview - MyHighway</title>
+    <link rel="stylesheet" href="../assets/style.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script src="../assets/app.js"></script>
+  </head>
+  <style>
+    .card.nopad {
+      background: linear-gradient(135deg, #1e1e2f, #3a3a52, #565678);
+    }
+    .card{
+      color: white;
+      font-weight: bold;
+      font-size: 20px;
+    }
+    .card h3{
+      color: #eadf97;
+      font-weight: bold;
+    }
+    .stats {
+      background: linear-gradient(135deg, #1e1e2f, #3a3a52, #565678);
+    }
+    .logoMy {
+      font-size:35px;
+      font-weight: bold;
+      color: #a0bddb;
+    }
+    .stats {
+      color: white;
+      font-size: 35px;
+    }
+    .stats span {
+      color: whitesmoke;
+      font-size: 15px;
+    }
+  </style>
+  <body>
+      <a class="out" href="#" id="lo">Logout</a>
+    </aside>
+    <div id="page">
+      <div class="stats" id="stats"></div>
+      <div class="card nopad">
+        <div id="map" class="map" style="height: 420px"></div>
+      </div>
+      <div class="card" style="margin-top: 18px">
+        <h3>Recent requests</h3>
+        <div id="rows"></div>
+      </div>
+    </div>
+    <script>
+      let map,
+        layer,
+        fit = 0;
+      async function live() {
+        const r = await api("live");
+        if (!r.ok) return;
+        layer.clearLayers();
+        const pts = [];
+        r.providers.forEach((p) => {
+          const ll = [+p.lat, +p.lng];
+          pts.push(ll);
+          L.marker(ll, { icon: ico(p.online == 1 ? "🚚" : "💤") })
+            .bindPopup(
+              "<b>" +
+                esc(p.name) +
+                "</b><br>" +
+                (p.online == 1 ? "Online" : "Offline") +
+                "<br>Last seen: " +
+                esc(p.last_seen || "-"),
+            )
+            .addTo(layer);
+        });
+        r.reqs.forEach((q) => {
+          const ll = [+q.lat, +q.lng];
+          pts.push(ll);
+          L.marker(ll, { icon: ico("🆘") })
+            .bindPopup("#" + q.id + " " + esc(q.sname) + "<br>" + esc(q.status))
+            .addTo(layer);
+        });
+        if (!fit && pts.length) {
+          fit = 1;
+          map.fitBounds(pts, { padding: [50, 50], maxZoom: 13 });
+        }
+      }
+      boot("admin", "Overview", async (u) => {
+        map = mkMap("map");
+        layer = L.layerGroup().addTo(map);
+        const r = await api("adm_stats"),
+          s = r.s;
+        $("stats").innerHTML = [
+          [s.cu, "Customers"],
+          [s.pr, "Providers"],
+          [s.onl, "Providers online"],
+          [s.pend, "Approval pending"],
+          [s.act + " / " + s.rq, "Active / total requests"],
+          ["₹" + s.rev, "Job value completed"],
+        ]
+          .map(
+            (x) => `<div class="stat"><b>${x[0]}</b><span>${x[1]}</span></div>`,
+          )
+          .join("");
+        $("rows").innerHTML =
+          "<table><tr><th>#</th><th>Service</th><th>Customer</th><th>Provider</th><th>Status</th><th>Amount</th><th>Time</th></tr>" +
+          r.rows
+            .map(
+              (x) =>
+                `<tr><td>${x.id}</td><td>${esc(x.sname)}</td><td>${esc(x.cname)}</td><td>${esc(x.pname || "-")}</td><td><span class="tag ${x.status}">${x.status.replace("_", " ")}</span></td><td>${x.price > 0 ? "₹" + x.price : "-"}</td><td>${esc(x.created)}</td></tr>`,
+            )
+            .join("") +
+          "</table>";
+        live();
+        setInterval(live, 5000);
+      });
+    </script>
+  </body>
+</html>

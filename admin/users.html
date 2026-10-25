@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Users - HighwayGo</title>
+    <link rel="stylesheet" href="../assets/style.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script src="../assets/app.js"></script>
+  </head>
+  <style>
+    .card {
+      color: white;
+      font-size: 20px;
+    }
+    th {
+      color: white;
+      font-weight: bold;
+      font-size: 20px;
+    }
+  </style>
+  <body>
+    <div id="page">
+      <div class="tabs" id="tabs" style="max-width: 420px"></div>
+      <div class="card" id="box"></div>
+    </div>
+    <script>
+      const f = new URLSearchParams(location.search).get("r") || "";
+      async function act(id, a) {
+        if (a == "delete" && !confirm("Is user ko delete karein?")) return;
+        const r = await api("adm_user_act", { id, act: a });
+        if (!r.ok) toast(r.err);
+        load();
+      }
+      async function load() {
+        const r = await api("adm_users", { role: f });
+        if (!r.ok) return;
+        $("box").innerHTML =
+          "<table><tr><th>User</th><th>Role</th><th>Phone</th><th>Status</th><th>Joined</th><th>Actions</th></tr>" +
+          r.rows
+            .map(
+              (x) =>
+                `<tr><td><b>${esc(x.name)}</b><br><span class="mut">${esc(x.email)}</span></td><td>${x.role}</td><td>${esc(x.phone)}</td><td><span class="tag ${x.status}">${x.status}</span></td><td>${esc((x.created || "").slice(0, 10))}</td><td>${x.id == r.me ? "" : `<div class="row">${x.status == "pending" ? `<button class="btn p sm" onclick="act(${x.id},'approve')">Approve</button>` : ""}${x.status == "blocked" ? `<button class="btn sm" onclick="act(${x.id},'unblock')">Unblock</button>` : x.role != "admin" ? `<button class="btn sm" onclick="act(${x.id},'block')">Block</button>` : ""}${x.role != "admin" ? `<button class="btn d sm" onclick="act(${x.id},'delete')">Delete</button>` : ""}</div>`}</td></tr>`,
+            )
+            .join("") +
+          "</table>";
+      }
+      boot("admin", "Users", (u) => {
+        $("tabs").innerHTML = [
+          ["", "All"],
+          ["customer", "Customers"],
+          ["provider", "Providers"],
+        ]
+          .map(
+            (t) =>
+              `<a class="${f == t[0] ? "on" : ""}" href="?r=${t[0]}">${t[1]}</a>`,
+          )
+          .join("");
+        load();
+      });
+    </script>
+  </body>
+</html>

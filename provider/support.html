@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Support chat - MyHighway</title>
+    <link rel="stylesheet" href="../assets/style.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script src="../assets/app.js"></script>
+  </head>
+  <style>
+    .card {
+      background: linear-gradient(135deg, #1e1e2f, #3a3a52, #565678);
+    }
+    h3 {
+      color: #eadf97;
+    }
+    .chat {
+      border: 1px solid white;
+    }
+  </style>
+  <body>
+    <div id="page">
+      <div class="card" style="max-width: 760px">
+        <h3>Live support</h3>
+        <p class="mut">
+          Humari support team se seedha chat karein. Reply aate hi yahin
+          dikhega.
+        </p>
+        <div class="chat" id="sup">
+          <div class="msgs"></div>
+          <form>
+            <input
+              name="body"
+              placeholder="Apna message likhein..."
+              autocomplete="off"
+            /><button class="btn p">Send</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    <script>
+      boot("provider", "Support chat", (u) => chat($("sup"), "sup_" + u.id));
+    </script>
+  </body>
+</html>

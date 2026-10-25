@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Services - HighwayGo</title>
+    <link rel="stylesheet" href="../assets/style.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script src="../assets/app.js"></script>
+  </head>
+  <style>
+    .card h3 {
+      color: #eadf97;
+      font-weight: bold;
+      font-size: 30px;
+    }
+    #list {
+      padding: 20px;
+      font-size: 20px;
+    }
+  </style>
+  <body>
+    <div id="page">
+      <div class="card">
+        <h3>Add service</h3>
+        <div class="row">
+          <input id="ni" placeholder="Emoji" style="max-width: 80px" /><input
+            id="nn"
+            placeholder="Service name"
+          /><input id="nd" placeholder="Short description" /><input
+            id="np"
+            type="number"
+            placeholder="Base price ₹"
+            style="max-width: 130px"
+          /><button class="btn p" id="add">Add service</button>
+        </div>
+      </div>
+      <div class="card" style="margin-top: 18px">
+        <h3>All services</h3>
+        <div id="list"></div>
+      </div>
+    </div>
+    <script>
+      const val = (id) => $(id).value;
+      async function load() {
+        const sv = (await api("public")).services || [];
+        $("list").innerHTML = sv
+          .map(
+            (s) =>
+              `<div class="row" style="margin-bottom:8px"><input id="i${s.id}" value="${esc(s.icon)}" style="max-width:70px"><input id="n${s.id}" value="${esc(s.name)}"><input id="d${s.id}" value="${esc(s.descr)}"><input id="p${s.id}" type="number" value="${s.base_price}" style="max-width:120px"><button class="btn sm" onclick="save(${s.id})">Save</button><button class="btn d sm" onclick="del(${s.id})">Delete</button></div>`,
+          )
+          .join("");
+      }
+      async function save(id) {
+        const r = await api("svc_save", {
+          id,
+          icon: val("i" + id),
+          name: val("n" + id),
+          descr: val("d" + id),
+          base_price: val("p" + id),
+        });
+        toast(r.ok ? "Service save ho gayi" : r.err);
+      }
+      async function del(id) {
+        if (!confirm("Service delete karein?")) return;
+        await api("svc_del", { id });
+        load();
+      }
+      boot("admin", "Services", (u) => {
+        load();
+        $("add").onclick = async () => {
+          const r = await api("svc_add", {
+            icon: val("ni"),
+            name: val("nn"),
+            descr: val("nd"),
+            base_price: val("np"),
+          });
+          if (!r.ok) return toast(r.err);
+          ["ni", "nn", "nd", "np"].forEach((i) => ($(i).value = ""));
+          load();
+        };
+      });
+    </script>
+  </body>
+</html>

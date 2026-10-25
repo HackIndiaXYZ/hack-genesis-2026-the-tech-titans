@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Login - MyHighway</title>
+    <link rel="stylesheet" href="assets/style.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script src="assets/app.js"></script>
+  </head>
+  <style>
+    h2 {
+      color: #eafd97;
+      font-size: 34px;
+    }
+    .auth.card {
+      background: linear-gradient(135deg, #1e1e2f, #3a3a52, #565678);
+      box-shadow:
+        0 0 0 4px #bed1e5,
+        0 20px 50px #0008;
+    }
+    .signup {
+      color: #eafd97;
+    }
+  </style>
+  <body>
+    <header id="nav"></header>
+    <div class="auth card">
+      <h2>Welcome Back</h2>
+      <div class="tabs" id="tabs"></div>
+      <div id="msg"></div>
+      <form id="f">
+        <label class="f">Email</label
+        ><input type="email" name="email" required autofocus /><label class="f"
+          >Password</label
+        ><input type="password" name="password" required /><button
+          class="btn p"
+          style="width: 100%; margin-top: 18px"
+        >
+          Login
+        </button>
+      </form>
+      <p class="mut" id="alt" style="margin-top: 14px"></p>
+    </div>
+    <script>
+      pubNav();
+      const q0 = new URLSearchParams(location.search).get("role"),
+        role = ["customer", "provider", "admin"].includes(q0) ? q0 : "customer";
+      $("tabs").innerHTML = [
+        ["customer", "Customer"],
+        ["provider", "Provider"],
+        ["admin", "Admin"],
+      ]
+        .map(
+          (t) =>
+            `<a class="${role == t[0] ? "on" : ""}" href="?role=${t[0]}">${t[1]}</a>`,
+        )
+        .join("");
+      if (role != "admin")
+        $("alt").innerHTML =
+          `Create account? <a class="signup" href="register.html?role=${role}">Sign Up</a>`;
+      $("f").onsubmit = async (e) => {
+        e.preventDefault();
+        const r = await api("login", new FormData(e.target));
+        if (!r.ok) {
+          $("msg").innerHTML = '<div class="note bad">' + esc(r.err) + "</div>";
+          return;
+        }
+        location.href = r.role + "/index.html";
+      };
+    </script>
+  </body>
+</html>
